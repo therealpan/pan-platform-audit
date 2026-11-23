@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/therealpan/platform-audit/register.schema.json",
-  "title": "platform-audit findings register",
+  "$id": "https://github.com/therealpan/pan-platform-audit/register.schema.json",
+  "title": "pan-platform-audit findings register",
   "description": "The only source of the audit score. scripts/audit_score.py enforces these rules and the cross-field ones a JSON Schema cannot express: phase must match the id prefix, no duplicate ids or duplicate keys, distinct not_applicable phases, superseded_by must point to another finding that is not itself superseded, no findings in phases declared not applicable, no AI findings when ai is false, no overlap between not_applicable and not_checked.",
   "type": "object",
   "additionalProperties": false,

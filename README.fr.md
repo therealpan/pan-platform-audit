@@ -1,4 +1,4 @@
-# platform-audit
+# pan-platform-audit
 
 [English](README.md) | [Italiano](README.it.md) | Français
 
@@ -19,7 +19,7 @@ Un rapport en Markdown, généré à partir d'un registre des constats en JSON, 
 Copiez le dossier dans votre répertoire de skills :
 
 ```bash
-git clone https://github.com/<owner>/platform-audit ~/.claude/skills/platform-audit
+git clone https://github.com/therealpan/pan-platform-audit ~/.claude/skills/pan-platform-audit
 ```
 
 Demandez ensuite à Claude Code « un audit de la plateforme » dans un dépôt. Avant de commencer, la skill demande où se trouve le code, une URL en service si elle existe, le mode et les zones à privilégier.

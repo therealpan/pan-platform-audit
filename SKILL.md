@@ -1,5 +1,5 @@
 ---
-name: "platform-audit"
+name: "pan-platform-audit"
 description: "Platform Audit: hands-on quality audit of a whole codebase in 11 phases (architecture and dependencies, security and supply chain, dead code, data layer, performance, SEO/GEO, observability, tests, UX and accessibility, privacy/GDPR, AI/LLM). Runs real commands, triages every hit, records evidence; produces a computed health score, findings register, priority matrix, sprint plan and risk register. Modes: full, lite, re-audit. TRIGGERS: platform audit, codebase audit, technical audit, technical debt, production readiness, is this production ready, re-audit, audit completo, audit del codice, debito tecnico, stato di salute del progetto, ripeti l'audit, audit de la plateforme, audit du code, dette technique, prêt pour la production, refaire l'audit. Also trigger for a whole-project check before launch or when several audit dimensions are named together. NOT for single-file/PR review or architecture plan review."
 ---
 
