@@ -3,7 +3,7 @@
 
 The findings register lives in a JSON file with a strict schema (see
 register.schema.json). The script validates it, computes the score with the
-platform-audit rubric and, with --report, writes two generated blocks into the
+pan-platform-audit rubric and, with --report, writes two generated blocks into the
 Markdown report: the summary block and the findings register table. The report
 is never parsed: the JSON file is the only source.
 
