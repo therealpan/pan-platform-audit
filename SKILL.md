@@ -37,21 +37,54 @@ You are a staff-level platform engineer performing a hands-on quality audit. You
 
 The score is computed, not guessed, so audits stay comparable over time.
 
-**Per-phase score (0 to 10):** start at 10. Subtract 1 per S2 (max 3) and 0,5 per S3 (max 1). Any S1 caps the phase at 6, any S0 caps it at 3. The score is the minimum of the cap and 10 minus the deductions. Only open findings count: in re-audit mode a finding marked `resolved` or `superseded` leaves the count, one resolved only in part stays in. A phase marked "not applicable" is excluded and its weight redistributed proportionally.
+**The findings register is a JSON file, and it is the only source of the score.** Keep it next to the report (`<report-name>.register.json`), following `register.schema.json` in this skill folder; `examples/register.example.json` shows the shape. Never write the score or the register table into the report by hand: `scripts/audit_score.py` (Python standard library only) validates the JSON, computes the score with no model involved, and writes both blocks into the report.
 
-**Weights:** Security 25, Architecture and dependencies 10, Data layer 10, Tests 10, Performance 10, Observability 10, Privacy 10, UX and accessibility 5, SEO/GEO 5, Dead code 5. When Phase 11 (AI/LLM) applies, it takes weight 10 and the others are rescaled to sum to 90.
-
-**Overall score** = weighted average, one decimal. Add a verdict band: 8,0 or more "production grade", 6,0 to 7,9 "production with hardening", 4,0 to 5,9 "not ready, plan required", below 4,0 "stop and stabilise".
-
-**The findings register is the only source of the score.** Do not do the arithmetic yourself when the script is available: `scripts/audit_score.py` in this skill folder (Python standard library only) reads the register from the report and applies this rubric with no model involved. Pass `--lang it` (or another supported language) when the report is not in English.
-
-```bash
-python3 scripts/audit_score.py <report.md> [--ai | --no-ai] [--not-applicable 6,9] [--lang it]   # print the summary block
-python3 scripts/audit_score.py <report.md> --write      # rewrite the block between the markers in the report
-python3 scripts/audit_score.py <report.md> --check      # exit 1 if block and register disagree
+```json
+{
+  "schema_version": 1,
+  "scope": {
+    "ai": false,
+    "not_applicable": [{ "phase": 6, "reason": "internal tool behind SSO, no public pages" }],
+    "not_checked": [9]
+  },
+  "findings": [
+    { "id": "P2-01", "phase": 2, "severity": "S1", "status": "open",
+      "area": "Webhooks", "finding": "...", "evidence": "file:line or command output",
+      "remediation": "...", "effort_h": "2-3", "acceptance": "...", "dependencies": "" }
+  ]
+}
 ```
 
-Put the markers `<!-- score:start -->` and `<!-- score:end -->` in the executive summary and let the script fill the block between them. When a finding changes state, update its row in the register (or in the status table), then run `--write`: never edit the summary numbers by hand, and never update a summary table without updating the register. If the script cannot be reached, compute by hand with the same rubric and write "score computed by hand" in the audit log.
+**Per-phase score (0 to 10):** start at 10. Subtract 1 per S2 (max 3) and 0,5 per S3 (max 1). Any S1 caps the phase at 6, any S0 caps it at 3. Only open findings count: status `open` or `regressed`. `resolved` needs `closed_on` (YYYY-MM-DD); `superseded` needs `superseded_by`, the ID of the finding that replaces it, which must not be superseded itself and must cover the same risk at the same or a higher severity. Both leave the count.
+
+**Scope of each phase**, declared in `scope`:
+- **checked** (the default): the phase was run; zero findings then means a clean phase.
+- **not applicable** (`not_applicable`, each entry with a `reason`): the product has nothing the phase could examine (no web front end for SEO, no user interface for UX). It leaves the calculation, may hold no findings, and its reason is printed in the score block. Use it only when the reason is a fact about the product; "no time" or "no access" means not checked. Security always applies: it can be not checked, never not applicable.
+- **not checked** (`not_checked`): the phase applies but was not run, or ran only in part (time box, missing access, tool unavailable). It lowers the coverage. Its findings, if any, go in the register as usual: the phase then stays in the average with its own score, so declaring a phase not checked can never raise the score. The audit log says what was left out.
+
+Whether Phase 11 applies (`scope.ai`) is declared from the Phase 0 footprint, never inferred from the findings.
+
+**Weights:** Security 25, Architecture and dependencies 10, Data layer 10, Tests 10, Performance 10, Observability 10, Privacy 10, UX and accessibility 5, SEO/GEO 5, Dead code 5. When Phase 11 applies, it takes weight 10 and the others are rescaled to sum to 90.
+
+**Coverage** = share of the applicable weight that was checked, in percent.
+
+**Overall score** = weighted average, one decimal, then capped so that the verdict cannot hide a risk:
+- any open S0: at most 3,9;
+- any open S1: at most 7,9;
+- coverage below 100%: at most 7,9;
+- Security not checked: at most 5,9.
+
+Verdict band from the capped score: 8,0 or more "production grade", 6,0 to 7,9 "production with hardening", 4,0 to 5,9 "not ready, plan required", below 4,0 "stop and stabilise". "Production grade" therefore requires full coverage and no open S0 or S1.
+
+```bash
+python3 scripts/audit_score.py <register.json>                                  # print the summary
+python3 scripts/audit_score.py <register.json> --report <report.md> --write     # write score block and register table
+python3 scripts/audit_score.py <register.json> --report <report.md> --check     # exit 1 if the report is stale
+```
+
+Add `--lang it` for an Italian report. The report must contain the marker pairs `<!-- score:start -->` / `<!-- score:end -->` (in the executive summary) and `<!-- register:start -->` / `<!-- register:end -->` (in section 2). The script refuses an invalid register and computes nothing: unknown or missing keys, a severity or status outside the allowed values, an ID not in the form `P<phase>-<nn>` or not matching `phase`, duplicates, a `superseded_by` that points nowhere, findings in a phase declared not applicable, AI findings with `ai: false`, contradictory scope. With `--write`, the score block then shows the list of problems. Fix the JSON; never loosen the scope just to get past the check. If the script cannot run, compute by hand with the same rubric and write "score computed by hand" in the audit log.
+
+The script checks only what sits between the markers. Any number or verdict you write elsewhere in the report (executive summary prose, closing message) must repeat the generated block word for word. `--ignore-status` gives the initial score with every finding counted as open; in re-audit mode, run the script on the previous `register.json` to get the earlier score for the trend.
 
 ---
 
@@ -60,10 +93,10 @@ Put the markers `<!-- score:start -->` and `<!-- score:end -->` in the executive
 | Mode | Phases | Use when |
 |------|--------|----------|
 | **full** (default) | 0 to 11 | Milestone before production, quarterly review. |
-| **lite** | 0, 1, 2, 4, 8 (+11 if applicable) | Time-boxed pre-release check, small project, or the user asks for "a quick check". Say explicitly in the report which phases were skipped. |
-| **re-audit** | Same as full or lite, plus delta | A previous findings register exists. Every old finding is re-verified and marked `resolved`, `open`, `regressed` or `superseded`; new findings get new IDs; the report shows the score trend. |
+| **lite** | 0, 1, 2, 4, 8 (+11 if applicable) | Time-boxed pre-release check, small project, or the user asks for "a quick check". The skipped phases go in `scope.not_checked`, so a lite audit can reach at most "production with hardening". |
+| **re-audit** | Same as full or lite, plus delta | A previous `register.json` exists. Copy it, re-verify every old finding and set its status to `resolved`, `open`, `regressed` or `superseded`; new findings get new IDs; the report shows the score trend. |
 
-**Parallel execution.** Phase 0 always runs first and its summary is shared. Phases 1 to 11 are independent: when the Agent tool is available and the codebase exceeds roughly 20.000 lines, fan them out in groups (security + supply chain; data + performance; observability + tests; SEO + UX; privacy + AI). Each subagent returns findings in the register schema below with evidence; the lead merges, deduplicates, normalises severities and assigns IDs. Never let a subagent decide the overall score.
+**Parallel execution.** Phase 0 always runs first and its summary is shared. Phases 1 to 11 are independent: when the Agent tool is available and the codebase exceeds roughly 20.000 lines, fan them out in groups (security + supply chain; data + performance; observability + tests; SEO + UX; privacy + AI). Each subagent returns findings as JSON objects in the register schema, with evidence; the lead merges, deduplicates, normalises severities and assigns IDs. Never let a subagent decide the overall score.
 
 ---
 
@@ -74,12 +107,12 @@ Ask before starting (skip the questions and state your assumptions when the sess
 > "I will run a platform audit. I need:
 > 1. Where the code is (path or repo), and whether I may install audit tools locally.
 > 2. A running URL (staging or production) for live checks of headers, robots, sitemap and Web Vitals, if one exists.
-> 3. Mode: full, lite, or re-audit (in that case, the path of the previous findings register).
+> 3. Mode: full, lite, or re-audit (in that case, the path of the previous `register.json`).
 > 4. Areas to focus on or skip, and project context (MVP, legacy migration, regulated sector, launch date).
 > 5. Whether the product uses LLM or ML APIs anywhere.
 > I will share the reconnaissance summary first, then findings phase by phase."
 
-Respect the project's CLAUDE.md if present (output folders, disk rules). Default report location: `./output/audit/<YYYY-MM-DD>-platform-audit.md` inside the project folder, with a `.docx` copy only if the user asks.
+Respect the project's CLAUDE.md if present (output folders, disk rules). Default report location: `./output/audit/<YYYY-MM-DD>-platform-audit.md` inside the project folder, with its register `./output/audit/<YYYY-MM-DD>-platform-audit.register.json` next to it, and a `.docx` copy only if the user asks.
 
 ---
 
@@ -340,12 +373,10 @@ ls evals eval tests/eval* promptfoo* 2>/dev/null
 Produce one document at the default location (or where the user asks). Sections in this order.
 
 ### 1. Executive summary
-8 to 12 sentences: overall score with band, per-phase scores in a compact table, top 3 risks (S0/S1), top 3 quick wins, what is solid, verdict on production readiness and the minimum hardening set. In re-audit mode, add the score trend and the counts resolved / open / regressed / new.
+8 to 12 sentences around the generated score block (overall score with band, weighted average, caps applied, coverage, per-phase scores), top 3 risks (S0/S1), top 3 quick wins, what is solid, verdict on production readiness and the minimum hardening set. In re-audit mode, add the score trend and the counts resolved / open / regressed / new.
 
 ### 2. Findings register
-| ID | Phase | Area | Finding | Severity | Evidence (file:line, command, or URL and response) | Remediation | Effort (h) | Acceptance criterion | Dependencies |
-
-IDs are `P<phase>-<nn>` (P2-03). Sort by severity, then phase. In re-audit mode add a `Status` column for previous IDs and keep their original numbers.
+Generated by the script between `<!-- register:start -->` and `<!-- register:end -->` from the JSON file: ID, phase, area, finding, severity, status, evidence (file:line, command, or URL and response), remediation, effort (h), acceptance criterion, dependencies, sorted by severity then phase. IDs are `P<phase>-<nn>` (P2-03); in re-audit mode previous findings keep their original IDs. Do not add a second findings table anywhere in the report.
 
 ### 3. Priority matrix
 Four quadrants by impact and effort: **Do now** (high impact, low effort), **Plan** (high impact, high effort, needs design), **Opportunistic** (low impact, low effort), **Backlog** (low impact, high effort). Every finding appears exactly once.
@@ -373,8 +404,8 @@ Tools run and versions, tools unavailable, phases skipped or not applicable, hit
 ## Anti-patterns
 
 - Never register a grep hit without opening it. Counts are context, confirmed items are findings.
-- Never compute the score in your head when `scripts/audit_score.py` can run, and never change a summary table without changing the register it comes from.
-- Never mark a phase clean because a scanner was missing or the code was too large to read: say what was not checked.
+- Never compute the score in your head when `scripts/audit_score.py` can run, and never edit the score block or the register table in the report: change the JSON and run `--write`.
+- Never mark a phase clean because a scanner was missing or the code was too large to read: declare it not checked, so it lowers the coverage instead of scoring 10.
 - Never write "improve error handling": name the file, the line and the change.
 - Never soften the verdict. If the platform is not ready, say so with the numbers.
 - Never write code fixes during the audit: identify, document, hand off.

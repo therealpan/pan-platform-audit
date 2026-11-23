@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/therealpan/platform-audit/register.schema.json",
+  "title": "platform-audit findings register",
+  "description": "The only source of the audit score. scripts/audit_score.py enforces these rules and the cross-field ones a JSON Schema cannot express: phase must match the id prefix, no duplicate ids or duplicate keys, distinct not_applicable phases, superseded_by must point to another finding that is not itself superseded, no findings in phases declared not applicable, no AI findings when ai is false, no overlap between not_applicable and not_checked.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ai",
+        "not_applicable",
+        "not_checked"
+      ],
+      "properties": {
+        "ai": {
+          "type": "boolean",
+          "description": "Whether phase 11 (AI and LLM) applies, from the Phase 0 footprint."
+        },
+        "not_applicable": {
+          "type": "array",
+          "description": "Phases the product has nothing for, each with the reason printed in the summary. Security (2) always applies.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "phase",
+              "reason"
+            ],
+            "properties": {
+              "phase": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 11,
+                "not": {
+                  "const": 2
+                }
+              },
+              "reason": {
+                "type": "string",
+                "pattern": "\\S"
+              }
+            }
+          }
+        },
+        "not_checked": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 11
+          },
+          "description": "Phases that apply but were not run, or only in part."
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "phase",
+          "severity",
+          "status",
+          "area",
+          "finding",
+          "evidence",
+          "remediation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^P([1-9]|1[01])-[0-9]{2,3}$"
+          },
+          "phase": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 11
+          },
+          "severity": {
+            "enum": [
+              "S0",
+              "S1",
+              "S2",
+              "S3"
+            ]
+          },
+          "status": {
+            "enum": [
+              "open",
+              "regressed",
+              "resolved",
+              "superseded"
+            ]
+          },
+          "area": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "finding": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "evidence": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "remediation": {
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "effort_h": {
+            "type": "string"
+          },
+          "acceptance": {
+            "type": "string"
+          },
+          "dependencies": {
+            "type": "string"
+          },
+          "closed_on": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "superseded_by": {
+            "type": "string",
+            "pattern": "^P([1-9]|1[01])-[0-9]{2,3}$"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "resolved"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "closed_on"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "superseded"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "superseded_by"
+              ]
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "superseded_by"
+              ]
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": "superseded"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

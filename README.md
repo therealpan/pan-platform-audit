@@ -12,7 +12,7 @@ Three modes: `full` (all phases), `lite` (a time-boxed pre-release check) and `r
 
 ## What you get
 
-One Markdown report with an executive summary, a findings register (ID, evidence, remediation, effort, acceptance criterion), a priority matrix, a three-sprint plan, a risk register for S0 and S1 items, and an audit log that makes the next re-audit reproducible.
+A Markdown report, generated from a JSON findings register, with an executive summary, a findings register (ID, evidence, remediation, effort, acceptance criterion), a priority matrix, a three-sprint plan, a risk register for S0 and S1 items, and an audit log that makes the next re-audit reproducible.
 
 ## Install
 
@@ -26,15 +26,19 @@ Then ask Claude Code for "a platform audit" in a repository. The skill asks for 
 
 ## Scoring
 
-`scripts/audit_score.py` reads the findings register from the report and applies the rubric in `SKILL.md`. Python 3.9 or later, standard library only. Output in English by default, in Italian with `--lang it`.
+The findings register is a JSON file next to the report (schema in `register.schema.json`, example in `examples/register.example.json`). `scripts/audit_score.py` validates it, computes the score and writes two generated blocks into the report: the summary and the register table. The report is never parsed, so a formatting slip cannot hide a finding. Python 3.9 or later, standard library only; output in English or, with `--lang it`, Italian.
+
+The score cannot hide a risk. Any open S0 caps it at 3,9 and any open S1 at 7,9. Phases that do not apply need a written reason, printed with the score; phases that apply but were not run are declared in the register and lower the coverage; coverage below 100% caps the score at 7,9, an unchecked Security phase at 5,9, and declaring a phase not checked can never raise the score. "Production grade" therefore needs full coverage and no open S0 or S1. Whether the AI phase applies is declared, never inferred.
 
 ```bash
-python3 scripts/audit_score.py report.md                 # print the summary block
-python3 scripts/audit_score.py report.md --write         # write the block between <!-- score:start --> and <!-- score:end -->
-python3 scripts/audit_score.py report.md --check         # exit 1 if block and register disagree
-python3 scripts/audit_score.py report.md --threshold 6.0 # exit 2 below the threshold, useful as a CI gate
-python3 -m unittest discover -s tests                    # run the tests
+python3 scripts/audit_score.py register.json                                # print the summary
+python3 scripts/audit_score.py register.json --report report.md --write     # write the blocks between the markers
+python3 scripts/audit_score.py register.json --report report.md --check     # exit 1 if the report is stale
+python3 scripts/audit_score.py register.json --threshold 6.0                # exit 2 below the threshold, useful as a CI gate
+python3 -m unittest discover -s tests                                       # run the tests
 ```
+
+The report needs the markers `<!-- score:start -->` / `<!-- score:end -->` and `<!-- register:start -->` / `<!-- register:end -->`. An invalid register (unknown keys, bad severity or status, malformed or duplicate ID, findings outside the declared scope) stops the script with exit 1 and a list of the problems; with `--write`, that list replaces the score block.
 
 The audit report is written in the language you use to ask for it.
 

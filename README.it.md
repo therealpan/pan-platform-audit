@@ -12,7 +12,7 @@ Tre modalità: `full` (tutte le fasi), `lite` (un controllo rapido prima del ril
 
 ## Cosa si ottiene
 
-Un rapporto in Markdown con sintesi per la direzione, registro dei finding (ID, evidenza, rimedio, stima in ore, criterio di accettazione), matrice delle priorità, piano su tre sprint, registro dei rischi per i finding S0 e S1, e un registro dell'audit che rende riproducibile quello successivo.
+Un rapporto in Markdown, generato da un registro dei finding in JSON, con sintesi per la direzione, registro dei finding (ID, evidenza, rimedio, stima in ore, criterio di accettazione), matrice delle priorità, piano su tre sprint, registro dei rischi per i finding S0 e S1, e un registro dell'audit che rende riproducibile quello successivo.
 
 ## Installazione
 
@@ -28,17 +28,19 @@ Il rapporto è scritto nella lingua in cui chiedi l'audit.
 
 ## Punteggio
 
-`scripts/audit_score.py` legge il registro dei finding dal rapporto e applica la rubrica di `SKILL.md`. Serve Python 3.9 o successivo, solo libreria standard. Con `--lang it` scrive in italiano; accetta anche le opzioni in italiano.
+Il registro dei finding è un file JSON accanto al rapporto (schema in `register.schema.json`, esempio in `examples/register.example.json`). `scripts/audit_score.py` lo valida, calcola il punteggio e scrive nel rapporto due blocchi generati: la sintesi e la tabella del registro. Il rapporto non viene mai interpretato, quindi un errore di formattazione non può nascondere un finding. Serve Python 3.9 o successivo, solo libreria standard; con `--lang it` scrive in italiano e accetta le opzioni in italiano.
+
+Il punteggio non può nascondere un rischio. Un S0 aperto lo limita a 3,9, un S1 aperto a 7,9. Le fasi non applicabili richiedono una motivazione scritta, stampata con il punteggio; quelle che si applicano ma non sono state eseguite si dichiarano nel registro e abbassano la copertura; con copertura sotto il 100% il punteggio non supera 7,9, con la sicurezza non verificata 5,9, e dichiarare una fase non verificata non può mai alzarlo. "Livello produzione" richiede quindi copertura piena e nessun S0 o S1 aperto. Se la fase AI si applica va dichiarato, non si deduce dai finding.
 
 ```bash
-python3 scripts/audit_score.py rapporto.md --lang it              # stampa il blocco di sintesi
-python3 scripts/audit_score.py rapporto.md --lang it --scrivi     # scrive il blocco fra i marcatori
-python3 scripts/audit_score.py rapporto.md --lang it --verifica   # esce con 1 se blocco e registro non coincidono
-python3 scripts/audit_score.py rapporto.md --soglia 6.0           # esce con 2 sotto la soglia, utile in CI
-python3 -m unittest discover -s tests                             # lancia i test
+python3 scripts/audit_score.py registro.json --lang it                                  # stampa la sintesi
+python3 scripts/audit_score.py registro.json --lang it --rapporto rapporto.md --scrivi  # scrive i blocchi fra i marcatori
+python3 scripts/audit_score.py registro.json --lang it --rapporto rapporto.md --verifica  # esce con 1 se il rapporto non è aggiornato
+python3 scripts/audit_score.py registro.json --lang it --soglia 6,0                     # esce con 2 sotto la soglia, utile in CI
+python3 -m unittest discover -s tests                                                   # lancia i test
 ```
 
-I marcatori sono `<!-- score:start -->` e `<!-- score:end -->`; vanno bene anche `<!-- punteggio:inizio -->` e `<!-- punteggio:fine -->`.
+Il rapporto deve contenere i marcatori `<!-- score:start -->` / `<!-- score:end -->` e `<!-- register:start -->` / `<!-- register:end -->`. Un registro non valido (chiavi sconosciute, severità o stato non ammessi, ID malformato o ripetuto, finding fuori dal perimetro dichiarato) ferma lo script con codice 1 e l'elenco dei problemi; con `--scrivi` quell'elenco sostituisce il blocco del punteggio.
 
 ## Limiti
 
