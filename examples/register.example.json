@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "scope": {
+    "ai": true,
+    "not_applicable": [
+      {
+        "phase": 6,
+        "reason": "internal tool behind SSO, no public pages to index"
+      }
+    ],
+    "not_checked": []
+  },
+  "findings": [
+    {
+      "id": "P2-01",
+      "phase": 2,
+      "severity": "S1",
+      "status": "open",
+      "area": "Webhooks",
+      "finding": "Payment webhook accepted without signature verification",
+      "evidence": "src/app/api/webhooks/route.ts:14",
+      "remediation": "Verify the provider signature before parsing the body",
+      "effort_h": "2-3",
+      "acceptance": "Unsigned or tampered requests get 400; test covers both",
+      "dependencies": ""
+    },
+    {
+      "id": "P8-01",
+      "phase": 8,
+      "severity": "S2",
+      "status": "open",
+      "area": "CI",
+      "finding": "Tests run in CI but the default branch does not require them",
+      "evidence": "gh api .../branches/main/protection: 404",
+      "remediation": "Protect main and require the test job",
+      "effort_h": "0,5",
+      "acceptance": "A failing test blocks the merge"
+    },
+    {
+      "id": "P11-01",
+      "phase": 11,
+      "severity": "S2",
+      "status": "resolved",
+      "closed_on": "2026-11-20",
+      "area": "LLM calls",
+      "finding": "No timeout on model calls",
+      "evidence": "src/lib/llm.ts:31",
+      "remediation": "Add a 30 s timeout and retries with backoff"
+    }
+  ]
+}
