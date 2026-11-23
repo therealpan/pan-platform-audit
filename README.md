@@ -1,5 +1,7 @@
 # pan-platform-audit
 
+![Pan Engineering Tools: Platform Audit, a work plan, not an opinion](assets/banner.png)
+
 English | [Italiano](README.it.md) | [Français](README.fr.md)
 
 A Claude Code skill that audits a whole codebase and returns a work plan, not an opinion. It runs real commands across 11 phases, opens every hit before it counts, and computes a health score from the findings register with a script, so two audits of the same code give the same number.
